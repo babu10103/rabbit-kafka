@@ -11,30 +11,31 @@ import org.springframework.stereotype.Service;
 public class MessageProducer {
     private RabbitTemplate rabbitMQTemplate;
 
-    public void sendCricketMessage(SportsMessage message) {
-        try {
-            rabbitMQTemplate.convertAndSend(RabbitMQConfig.topicExchangeName, "sports.cricket", message);
-            System.out.println("Sent cricket message: " + message);
-        } catch (Exception e) {
-            System.err.println("Failed to send cricket message after retries: " + e.getMessage());
-        }
+    @FunctionalInterface
+    interface MessageSender {
+        void send(SportsMessage message, RabbitTemplate template, String exchange, String routingKey);
     }
 
-    public void sendFootballMessage(SportsMessage message) {
+    private void sendMessage(SportsMessage message, String routingKey, MessageSender sender) {
         try {
-            rabbitMQTemplate.convertAndSend(RabbitMQConfig.topicExchangeName, "sports.football", message);
-            System.out.println("Sent football message: " + message);
-        } catch (Exception e) {
-            System.err.println("Failed to send football message after retries: " + e.getMessage());
-        }
-    }
-
-    public void sendAllMessage(SportsMessage message) {
-        try {
-            rabbitMQTemplate.convertAndSend(RabbitMQConfig.topicExchangeName, "sports", message);
+            sender.send(message, rabbitMQTemplate, RabbitMQConfig.topicExchangeName,  routingKey);
             System.out.println("Sent message: " + message);
         } catch (Exception e) {
             System.err.println("Failed to send message after retries: " + e.getMessage());
         }
+    }
+
+    private final MessageSender defaultSender = (message, template, exchange, routingKey) -> template.convertAndSend(exchange, routingKey, message);
+
+    public void sendCricketMessage(SportsMessage message) {
+        sendMessage(message, "sports.cricket", defaultSender);
+    }
+
+    public void sendFootballMessage(SportsMessage message) {
+        sendMessage(message, "sports.football", defaultSender);
+    }
+
+    public void sendAllMessage(SportsMessage message) {
+        sendMessage(message, "sports", defaultSender);
     }
 }
